@@ -12,11 +12,11 @@ import pickle
 import os
 from pprint import pprint
 import numpy as np
+from tqdm import tqdm 
 
 
 #makes products for specified region and time period 
 def makeProductCollection(colOptions,netOptions,variable,mapBounds,startDate,endDate,maxCloudcover,inputScaleSize) :
-
     # print('makeProductCollection')
     products = []
     tools = colOptions['tools']
@@ -50,7 +50,6 @@ def makeProductCollection(colOptions,netOptions,variable,mapBounds,startDate,end
 
     # check if there are products
     if (input_collection.size().getInfo() > 0):
-
         # reproject to output scale based if it differs from nominal scale of first band
         projection = input_collection.first().select(netOptions["inputBands"][3]).projection()
         # print(projection.nominalScale().getInfo())
@@ -70,7 +69,6 @@ def makeProductCollection(colOptions,netOptions,variable,mapBounds,startDate,end
             input_collection  =  input_collection.map(lambda image: tools.MaskLand(image)).map(lambda image: \
                                         toolsUtils.scaleBands(netOptions["inputBands"],netOptions["inputScaling"],netOptions["inputOffset"],image)) \
                                                  .map(lambda image: toolsUtils.invalidInput(colOptions["sl2pDomain"],netOptions["inputBands"],image)) 
-
 
             ## apply networks to produce mapped parameters                                                
             products =  input_collection.select(['date','QC','longitude','latitude'])            
@@ -93,10 +91,6 @@ def makeProductCollection(colOptions,netOptions,variable,mapBounds,startDate,end
             # samples=image.sample(region=miage.geometry(), projection=image.select('date').projection(), scale=inputScaleSize,geometries=True, dropNulls = False)
             # sampleList2= ee.List(productCollection.first().bandNames().map(lambda bandName: ee.Dictionary({ 'bandName': bandName, 'data': samples.aggregate_array(bandName)})))
             # print(sampleList2.getInfo())]
-
-    else:
-        print('No images found.')
-
     
     return products
 
@@ -150,8 +144,6 @@ def getCollection(site,variable,collectionOptions,networkOptions,maxCloudcover,b
                                             .reproject({crs: outputCollection,scale:outputScaleSize});
     return outputCollection
 
-
-
 #format samples into a data frame
 def samplestoDF(sampleFeature):
 
@@ -176,9 +168,7 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
     print('\nSTARTING LEAF IMAGE for ',imageCollectionName,'\n ')
     if outputFileName==None:
         outputFileName=os.getcwd()
-    #parse bufferTemporalSize 
-    #if it is in date time format assign it to startDate and endDate 
-    
+    #parse bufferTemporalSize: if it is in date time format assign it to startDate and endDate 
     if (type(bufferTemporalSize[0])==str):
         try: 
             startDate = datetime.strptime(bufferTemporalSize[0],"%Y-%m-%d")
@@ -189,7 +179,7 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
             defaultDate = False
     else:
         defaultDate = False
-
+  
     outputDictionary = {}
     collectionOptions = (dictionariesSL2P.make_collection_options(algorithm))
     networkOptions= dictionariesSL2P.make_net_options()
@@ -199,14 +189,24 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
         sampleRecords =  sampleRecords.toList(sampleRecords.size())
         print('Site: ',input, ' with ',sampleRecords.size().getInfo(), ' features.')
         result = []
-        outputFileName='_'.join([outputFileName,os.path.split(os.path.abspath(input))[-1],variableName,str(feature_range[0])+'-'+str(feature_range[1]),datetime.now().strftime("%Y_%m_%d_%Hh_%mmn_%Ss")+'.pkl'])
-        print(outputFileName)
-        
-        for n in range(max([0,feature_range[0]]),min([feature_range[1],sampleRecords.size().getInfo()])) : #sampleRecords.size().getInfo()
+        print(input)
+        ofn='_'.join([os.path.split(os.path.abspath(input))[-1],variableName,str(feature_range[0]),str(feature_range[1]),datetime.now().strftime("%Y_%m_%d_%Hh_%mmn_%Ss")+'.pkl'])
+        outputFileName=os.path.join(outputFileName,ofn)
+        print('Output path: %s'%(outputFileName))
+        #save data search parameters
+        params=['input','imageCollectionName','algorithm','variableName','maxCloudcover','outputScaleSize','inputScaleSize','bufferSpatialSize','bufferTemporalSize','subsamplingFraction','feature_range']
+        for pp in params:
+            if pp == params[0]:
+                txt=''
+            txt=txt+pp+': %s\n'%(eval(pp))
+        with open(outputFileName.replace('.pkl','_metadata.txt'), "a") as fp:   
+            fp.write(txt)
+            fp.close()
+        #######
+        print('Data sampeling for features: from %s to %s'%(max([0,feature_range[0]]),min([feature_range[1],sampleRecords.size().getInfo()])))
+        for n in tqdm(range(max([0,feature_range[0]]),min([feature_range[1],sampleRecords.size().getInfo()]))) : #sampleRecords.size().getInfo()
             # select feature to process
-            
             site = ee.Feature(sampleRecords.get(n))
-
             # get start and end date for this feature if it 
             if ( defaultDate==False ):
                 time_start = site.get('system:time_start').getInfo()
@@ -225,14 +225,13 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
                     endDate = startDate + timedelta(days=bufferTemporalSize[1])
                 endDatePlusOne = endDate + timedelta(days=1)
                 
-            print('Processing feature:',n,' from ', startDate,' to ',endDate)
             #do monthly processing 
             if (len(pd.date_range(startDate,endDate,freq='m')) > 0 ):
                 dateRange = pd.DataFrame(pd.date_range(startDate,endDate,freq='m'),columns=['startDate'])
                 dateRange['endDate'] = pd.concat([dateRange['startDate'].tail(-1),pd.DataFrame([endDatePlusOne])],ignore_index=True).values
             else:
                 dateRange = pd.DataFrame( {'startDate':[startDate],'endDate':[endDatePlusOne]})
-
+                
             # process one month at a time to prevent GEE memory limits
             samplesDF = pd.DataFrame()
             for index, Dates in dateRange.iterrows():
@@ -252,7 +251,6 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
 
         outputDictionary.update({input: result})
         print('\nDONE LEAF SITE\n')
-
         if ( outputFileName ):
             with open(outputFileName, "wb") as fp:   #Pickling
                 pickle.dump(outputDictionary, fp)
