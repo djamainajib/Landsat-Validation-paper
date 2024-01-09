@@ -218,11 +218,11 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
                 if ("system:time_end" in site.propertyNames().getInfo()):
                     time_end = site.get('system:time_end').getInfo()
                     if isinstance(time_end, int):
-                        endDate = datetime.fromtimestamp(site.get('system:time_end').getInfo()/1000) + timedelta(days=bufferTemporalSize[0])
+                        endDate = datetime.fromtimestamp(site.get('system:time_end').getInfo()/1000) + timedelta(days=bufferTemporalSize[1])
                     else:
-                        endDate = datetime.fromtimestamp(ee.Date.parse("DD/MM/yy",site.get('system:time_end')).getInfo()['value']/1000) + timedelta(days=bufferTemporalSize[0])
+                        endDate = datetime.fromtimestamp(ee.Date.parse("DD/MM/yy",site.get('system:time_end')).getInfo()['value']/1000) + timedelta(days=bufferTemporalSize[1])
                 else:
-                    endDate = startDate + timedelta(days=bufferTemporalSize[1])
+                    endDate = startDate - timedelta(days=bufferTemporalSize[0])+ timedelta(days=bufferTemporalSize[1])
                 endDatePlusOne = endDate + timedelta(days=1)
                 
             #do monthly processing 
