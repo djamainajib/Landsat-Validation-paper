@@ -163,12 +163,12 @@ def samplestoDF(sampleFeature):
     return sampleDF
 
 #sample features for LEAF output
-def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxCloudcover=100,outputScaleSize=30,inputScaleSize=30,bufferSpatialSize=0,bufferTemporalSize=[0,0],subsamplingFraction=1,outputFileName=None,feature_range=[0,0]):
-    
-    print('\nSTARTING LEAF IMAGE for ',imageCollectionName,'\n ')
+def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxCloudcover=100,outputScaleSize=30,inputScaleSize=30,bufferSpatialSize=0,bufferTemporalSize=[0,0],subsamplingFraction=1,outputFileName=None,feature_range=[0,np.nan]):
+
+    print('STARTING LEAF IMAGE for ',imageCollectionName)
     if outputFileName==None:
         outputFileName=os.getcwd()
-    #parse bufferTemporalSize: if it is in date time format assign it to startDate and endDate 
+
     if (type(bufferTemporalSize[0])==str):
         try: 
             startDate = datetime.strptime(bufferTemporalSize[0],"%Y-%m-%d")
@@ -188,8 +188,9 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
         sampleRecords =  ee.FeatureCollection(input).sort('system:time_start', False).map(lambda feature: feature.set('timeStart',feature.get('system:time_start')))
         sampleRecords =  sampleRecords.toList(sampleRecords.size())
         print('Site: ',input, ' with ',sampleRecords.size().getInfo(), ' features.')
+        feature_range[1]=np.int32(np.nanmin([feature_range[1],sampleRecords.size().getInfo()]))
+        
         result = []
-        print(input)
         ofn='_'.join([os.path.split(os.path.abspath(input))[-1],variableName,str(feature_range[0]),str(feature_range[1]),datetime.now().strftime("%Y_%m_%d_%Hh_%mmn_%Ss")+'.pkl'])
         outputFileName=os.path.join(outputFileName,ofn)
         print('Output path: %s'%(outputFileName))
@@ -203,8 +204,9 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
             fp.write(txt)
             fp.close()
         #######
-        print('Data sampeling for features: from %s to %s'%(max([0,feature_range[0]]),min([feature_range[1],sampleRecords.size().getInfo()])))
-        for n in tqdm(range(max([0,feature_range[0]]),min([feature_range[1],sampleRecords.size().getInfo()]))) : #sampleRecords.size().getInfo()
+        
+        print('Data sampeling for features: from %s to %s'%(feature_range[0],feature_range[1]))
+        for n in range(feature_range[0],feature_range[1]) : #sampleRecords.size().getInfo()
             # select feature to process
             site = ee.Feature(sampleRecords.get(n))
             # get start and end date for this feature if it 
@@ -222,9 +224,10 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
                     else:
                         endDate = datetime.fromtimestamp(ee.Date.parse("DD/MM/yy",site.get('system:time_end')).getInfo()['value']/1000) + timedelta(days=bufferTemporalSize[1])
                 else:
-                    endDate = startDate - timedelta(days=bufferTemporalSize[0])+ timedelta(days=bufferTemporalSize[1])
+                    endDate = startDate - timedelta(days=bufferTemporalSize[0]) + timedelta(days=bufferTemporalSize[1])
                 endDatePlusOne = endDate + timedelta(days=1)
-                
+
+            print('Feature n°: %s/%s  -- startDate: %s -- endDate: %s'%(n,feature_range[1],startDate,endDate), end="\r")
             #do monthly processing 
             if (len(pd.date_range(startDate,endDate,freq='m')) > 0 ):
                 dateRange = pd.DataFrame(pd.date_range(startDate,endDate,freq='m'),columns=['startDate'])
