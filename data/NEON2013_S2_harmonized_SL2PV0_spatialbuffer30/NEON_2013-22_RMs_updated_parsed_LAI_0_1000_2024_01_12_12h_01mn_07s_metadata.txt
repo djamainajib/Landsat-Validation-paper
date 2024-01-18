@@ -1,0 +1,11 @@
+input: projects/ee-modis250/assets/validationGBOV/NEON_2013-22_RMs_updated_parsed
+imageCollectionName: COPERNICUS/S2_SR_HARMONIZED
+algorithm: <module 'SL2PV0' from 'C:\\Djamai_Najib\\1_vegetation_parameters\\1_scripts\\LEAF-Landsat-Validation-paper\\SL2PV0.py'>
+variableName: LAI
+maxCloudcover: 90
+outputScaleSize: 30
+inputScaleSize: 30
+bufferSpatialSize: 30
+bufferTemporalSize: [-10, 10]
+subsamplingFraction: 0.99
+feature_range: [0, 1000]

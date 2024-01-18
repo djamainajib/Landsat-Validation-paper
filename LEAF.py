@@ -58,7 +58,7 @@ def makeProductCollection(colOptions,netOptions,variable,mapBounds,startDate,end
         #     print('reprojection')
         input_collection = input_collection.map( lambda image: image.setDefaultProjection(crs=image.select(image.bandNames().slice(0,1)).projection()) \
                                                                     .reduceResolution(reducer= ee.Reducer.mean(),maxPixels=1024).reproject(crs=projection,scale=inputScaleSize))
-                                                
+
         if variable == "Surface_Reflectance":
             products = input_collection
         else:
@@ -183,6 +183,11 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
     outputDictionary = {}
     collectionOptions = (dictionariesSL2P.make_collection_options(algorithm))
     networkOptions= dictionariesSL2P.make_net_options()
+
+    ofn='_'.join([os.path.split(os.path.abspath(siteList[0]))[-1],variableName,str(feature_range[0]),str(feature_range[1]),datetime.now().strftime("%Y_%m_%d_%Hh_%mmn_%Ss")+'.pkl'])
+    outputFileName=os.path.join(outputFileName,ofn)
+    print('Output path: %s'%(outputFileName))
+
     for input in siteList:   
         #Convert the feature collection to a list so we can apply SL2P on features in sequence to avoid time outs on GEE
         sampleRecords =  ee.FeatureCollection(input).sort('system:time_start', False).map(lambda feature: feature.set('timeStart',feature.get('system:time_start')))
@@ -191,9 +196,7 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
         feature_range[1]=np.int32(np.nanmin([feature_range[1],sampleRecords.size().getInfo()]))
         
         result = []
-        ofn='_'.join([os.path.split(os.path.abspath(input))[-1],variableName,str(feature_range[0]),str(feature_range[1]),datetime.now().strftime("%Y_%m_%d_%Hh_%mmn_%Ss")+'.pkl'])
-        outputFileName=os.path.join(outputFileName,ofn)
-        print('Output path: %s'%(outputFileName))
+        
         #save data search parameters
         params=['input','imageCollectionName','algorithm','variableName','maxCloudcover','outputScaleSize','inputScaleSize','bufferSpatialSize','bufferTemporalSize','subsamplingFraction','feature_range']
         for pp in params:
@@ -238,6 +241,8 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
             # process one month at a time to prevent GEE memory limits
             samplesDF = pd.DataFrame()
             for index, Dates in dateRange.iterrows():
+                print(n)
+                print(input)
                 sampleFeature= getSamples(site,variableName,collectionOptions[imageCollectionName],networkOptions[variableName][imageCollectionName],maxCloudcover,bufferSpatialSize,inputScaleSize, \
                             Dates['startDate'],Dates['endDate'],outputScaleSize,subsamplingFraction)
                 if sampleFeature :
@@ -246,11 +251,11 @@ def sampleSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClo
             result.append({'feature': ee.Dictionary(ee.Feature(sampleRecords.get(n)).toDictionary()).getInfo() , \
                         algorithm.__name__ : samplesDF })
         
-            #dump every 100
-            if (outputFileName):
-                if (( n % 100 ) == 0 ):
-                    with open(outputFileName.replace('.pkl','_raw.pkl'), "wb") as fp:   #Pickling
-                        pickle.dump(outputDictionary, fp)
+            # #dump every 100
+            # if (outputFileName):
+            #     if (( n % 100 ) == 0 ):
+            #         with open(outputFileName.replace('.pkl','_raw.pkl'), "wb") as fp:   #Pickling
+            #             pickle.dump(outputDictionary, fp)
 
         outputDictionary.update({input: result})
         print('\nDONE LEAF SITE\n')
@@ -297,7 +302,7 @@ def imageSites(siteList,imageCollectionName,algorithm,variableName='LAI',maxClou
             # process one month at a time to prevent GEE memory limits
             siteCollection = ee.ImageCollection([])
             for index, Dates in dateRange.iterrows():
-                print(Dates)
+
                 monthlyCollection = getCollection(site,variableName,collectionOptions[imageCollectionName],networkOptions[variableName][imageCollectionName],maxCloudcover,bufferSpatialSize,inputScaleSize, \
                             Dates['startDate'],Dates['endDate'],outputScaleSize,subsamplingFraction)
                 if monthlyCollection :

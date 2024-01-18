@@ -1,0 +1,11 @@
+input: projects/ee-modis250/assets/validationGBOV/COPERNICUS_GBOV_RM7_20220616174529
+imageCollectionName: LANDSAT/LC08/C02/T1_L2
+algorithm: <module 'SL2PV0' from '/Workspace/Repos/najib.djamai@nrcan-rncan.gc.ca/Landsat-Validation-paper/SL2PV0.py'>
+variableName: fCOVER
+maxCloudcover: 90
+outputScaleSize: 30
+inputScaleSize: 30
+bufferSpatialSize: 45
+bufferTemporalSize: [-10, 10]
+subsamplingFraction: 0.99
+feature_range: [6000, 7000]
