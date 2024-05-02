@@ -16,7 +16,6 @@ def deltaTime(midDate, image):
     return ee.Image(image.set("deltaTime",ee.Number(image.date().millis()).subtract(ee.Number(midDate)).abs()))
 
 
-
 # return image with selected bands scaled
 def scaleBands(bandList, scaleList, offsetList,image):
     bandList = ee.List(bandList)
